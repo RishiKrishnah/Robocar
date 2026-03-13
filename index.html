@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Robot Car Control</title>
+
+<style>
+
+body{
+font-family: Arial;
+text-align:center;
+margin-top:50px;
+}
+
+button{
+width:120px;
+height:60px;
+font-size:20px;
+margin:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>WiFi Robot Controller</h1>
+
+<button onclick="send('forward')">Forward</button>
+<br>
+
+<button onclick="send('left')">Left</button>
+<button onclick="send('stop')">Stop</button>
+<button onclick="send('right')">Right</button>
+
+<br>
+
+<button onclick="send('backward')">Backward</button>
+
+<script>
+
+const ARDUINO_IP = "http://192.168.1.52";
+
+function send(command){
+
+fetch(`${ARDUINO_IP}/${command}`)
+.then(res=>res.json())
+.then(data=>console.log(data))
+.catch(err=>console.log(err));
+
+}
+
+</script>
+
+</body>
+</html>
