@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Air Quality Dashboard</title>
+    <script>
+        async function fetchData() {
+            const res = await fetch('/data');
+            const data = await res.json();
+
+            document.getElementById("gas").innerText = data.gas;
+            document.getElementById("temp").innerText = data.temperature;
+            document.getElementById("hum").innerText = data.humidity;
+            document.getElementById("aqi").innerText = data.aqi;
+            document.getElementById("category").innerText = data.category;
+
+            document.getElementById("map").src =
+                `https://maps.google.com/maps?q=${data.latitude},${data.longitude}&z=15&output=embed`;
+        }
+
+        setInterval(fetchData, 2000);
+    </script>
+</head>
+
+<body>
+    <h1>🌍 Air Quality Monitoring System</h1>
+
+    <p><b>Gas Value:</b> <span id="gas">-</span></p>
+    <p><b>Temperature:</b> <span id="temp">-</span> °C</p>
+    <p><b>Humidity:</b> <span id="hum">-</span> %</p>
+
+    <h2>AQI: <span id="aqi">-</span></h2>
+    <h3>Status: <span id="category">-</span></h3>
+
+    <h3>📍 Location</h3>
+    <iframe id="map" width="600" height="400"></iframe>
+</body>
+</html>
