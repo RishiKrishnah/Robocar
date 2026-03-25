@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air Quality</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Syne:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f3ef;
+    --surface: #eeecea;
+    --border: #d8d4cc;
+    --ink: #1a1a1a;
+    --muted: #9a9690;
+    --accent: #2a7a3e;
+    --warn: #b07d20;
+    --danger: #b84030;
+    --good: #2a7a3e;
+  }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Syne', sans-serif;
+    min-height: 100dvh;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Subtle noise grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .brand-title {
+    font-size: clamp(18px, 5vw, 22px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .pulse-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ink);
+    position: relative;
+  }
+  .pulse::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1px solid var(--ink);
+    animation: ping 2s ease-out infinite;
+    opacity: 0;
+  }
+  @keyframes ping {
+    0%   { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  .live-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+  }
+
+  /* AQI Hero */
+  .aqi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .aqi-left { display: flex; flex-direction: column; gap: 6px; }
+
+  .aqi-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .aqi-value {
+    font-size: clamp(52px, 14vw, 72px);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--accent);
+    transition: color 0.6s;
+  }
+
+  .aqi-category {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--ink);
+    opacity: 0.7;
+    letter-spacing: 0.03em;
+  }
+
+  /* AQI arc gauge */
+  .aqi-gauge {
+    flex-shrink: 0;
+  }
+
+  .gauge-svg { overflow: visible; }
+
+  .gauge-track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 5;
+    stroke-linecap: round;
+  }
+
+  .gauge-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 188;
+    stroke-dashoffset: 188;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1), stroke 0.6s;
+    transform-origin: center;
+    transform: rotate(-210deg);
+  }
+
+  /* Metric grid */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    animation: fadeUp 0.5s 0.1s ease both;
+  }
+
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.3s;
+  }
+
+  .metric:hover { border-color: #b8b4ac; }
+
+  .metric-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .metric-val {
+    font-size: clamp(20px, 5vw, 26px);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .metric-unit {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+
+  .metric-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  /* Map section */
+  .map-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeUp 0.5s 0.2s ease both;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding-left: 2px;
+  }
+
+  .map-wrap {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    aspect-ratio: 16 / 9;
+    position: relative;
+  }
+
+  .map-wrap iframe {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: none;
+    filter: none;
+  }
+
+  /* Last updated */
+  .footer {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.1em;
+    animation: fadeUp 0.5s 0.3s ease both;
+  }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Mobile tweaks */
+  @media (max-width: 400px) {
+    .page { padding: 20px 14px 40px; gap: 16px; }
+    .aqi-card { padding: 20px 16px; }
+    .metric { padding: 12px 10px; }
+    .aqi-gauge { display: none; }
+  }
+
+  @media (max-width: 320px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <span class="brand-label">Monitor</span>
+      <span class="brand-title">Air Quality</span>
+    </div>
+    <div class="pulse-wrap">
+      <div class="pulse"></div>
+      <span class="live-label">LIVE</span>
+    </div>
+  </header>
+
+  <!-- AQI Hero -->
+  <div class="aqi-card">
+    <div class="aqi-left">
+      <span class="aqi-label">AQI Index</span>
+      <div class="aqi-value" id="aqi">—</div>
+      <div class="aqi-category" id="category">Loading…</div>
+    </div>
+    <div class="aqi-gauge">
+      <svg class="gauge-svg" width="100" height="80" viewBox="0 0 100 80">
+        <path class="gauge-track" d="M 10 75 A 40 40 0 1 1 90 75"/>
+        <path class="gauge-fill" id="gaugeFill" d="M 10 75 A 40 40 0 1 1 90 75"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <span class="metric-icon">🌡</span>
+      <div>
+        <span class="metric-val" id="temp">—</span>
+        <span class="metric-unit">°C</span>
+      </div>
+      <span class="metric-label">Temp</span>
+    </div>
+    <div class="metric">
+      <span class="metric-icon">💧</span>
+      <div>
+        <span class="metric-val" id="hum">—</span>
+        <span class="metric-unit">%</span>
+      </div>
+      <span class="metric-label">Humid</span>
+    </div>
+    <div class="metric">
+      <span class="metric-icon">⚗️</span>
+      <div>
+        <span class="metric-val" id="gas">—</span>
+      </div>
+      <span class="metric-label">Gas</span>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="map-section">
+    <span class="section-label">📍 Location</span>
+    <div class="map-wrap">
+      <iframe id="map" allowfullscreen loading="lazy"></iframe>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer" id="footer">Waiting for data…</div>
+
+</div>
+
+<script>
+  const aqiEl    = document.getElementById('aqi');
+  const catEl    = document.getElementById('category');
+  const tempEl   = document.getElementById('temp');
+  const humEl    = document.getElementById('hum');
+  const gasEl    = document.getElementById('gas');
+  const mapEl    = document.getElementById('map');
+  const footerEl = document.getElementById('footer');
+  const fill     = document.getElementById('gaugeFill');
+  const aqiCard  = document.querySelector('.aqi-value');
+
+  // AQI color bands — darker tones for light bg
+  function aqiColor(val) {
+    if (val <= 50)  return '#2a7a3e';   // Good
+    if (val <= 100) return '#b07d20';   // Moderate
+    if (val <= 150) return '#c06020';   // Unhealthy sensitive
+    if (val <= 200) return '#b84030';   // Unhealthy
+    if (val <= 300) return '#8a2a6e';   // Very Unhealthy
+    return '#6a1a2a';                   // Hazardous
+  }
+
+  // Gauge arc: 0–500 mapped to dashoffset 188–0
+  function setGauge(val) {
+    const clamped = Math.min(Math.max(val, 0), 500);
+    const offset = 188 - (clamped / 500) * 188;
+    fill.style.strokeDashoffset = offset;
+    fill.style.stroke = aqiColor(val);
+  }
+
+  async function fetchData() {
+    try {
+      const res  = await fetch('/data');
+      const data = await res.json();
+
+      const aqi = parseInt(data.aqi) || 0;
+      const color = aqiColor(aqi);
+
+      aqiEl.textContent = data.aqi ?? '—';
+      aqiEl.style.color = color;
+      catEl.textContent = data.category ?? '—';
+      tempEl.textContent = data.temperature ?? '—';
+      humEl.textContent  = data.humidity ?? '—';
+      gasEl.textContent  = data.gas ?? '—';
+      setGauge(aqi);
+
+      if (data.latitude && data.longitude) {
+        mapEl.src = `https://maps.google.com/maps?q=${data.latitude},${data.longitude}&z=15&output=embed`;
+      }
+
+      const now = new Date();
+      footerEl.textContent = `Updated ${now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+    } catch {
+      footerEl.textContent = 'Connection error — retrying…';
+    }
+  }
+
+  fetchData();
+  setInterval(fetchData, 2000);
+</script>
+</body>
+</html>
