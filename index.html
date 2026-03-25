@@ -1,56 +1,258 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Robot Car Control</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robot</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Syne:wght@300;400&display=swap" rel="stylesheet">
 <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body{
-font-family: Arial;
-text-align:center;
-margin-top:50px;
-}
+  :root {
+    --bg: #f5f3ef;
+    --ink: #1a1a1a;
+    --mid: #9a9690;
+    --line: #d8d4cc;
+    --active: #1a1a1a;
+  }
 
-button{
-width:120px;
-height:60px;
-font-size:20px;
-margin:10px;
-}
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
 
+  /* Top nav link */
+  .nav {
+    position: fixed;
+    top: 28px;
+    left: 32px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--mid);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav:hover { color: var(--ink); }
+
+  /* Status indicator */
+  .status {
+    position: fixed;
+    top: 28px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--mid);
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mid);
+    transition: background 0.3s;
+  }
+  .dot.active { background: #4caf88; }
+  .dot.error  { background: #c0695a; }
+
+  /* Main */
+  .main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+  }
+
+  .wordmark {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+
+  /* D-pad */
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 6px;
+    width: 186px;
+    height: 186px;
+  }
+
+  .btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .btn:hover svg { stroke: var(--bg); }
+  .btn:active { transform: scale(0.93); }
+
+  /* Stop button — center cell */
+  .btn.stop {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .btn.stop svg { stroke: var(--bg); }
+  .btn.stop:hover { background: #333; border-color: #333; }
+
+  /* Arrow SVGs */
+  svg {
+    width: 16px;
+    height: 16px;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 0.15s;
+  }
+  .stop svg { stroke: var(--bg); }
+
+  /* Empty cells */
+  .empty { visibility: hidden; pointer-events: none; }
+
+  /* Command log */
+  .log {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--mid);
+    min-height: 16px;
+    transition: opacity 0.3s;
+  }
+
+  /* Press feedback */
+  @keyframes ripple {
+    from { opacity: 0.15; transform: scale(0); }
+    to   { opacity: 0; transform: scale(3); }
+  }
+  .ripple-el {
+    position: absolute;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: white;
+    animation: ripple 0.4s ease-out forwards;
+    pointer-events: none;
+    top: 50%; left: 50%;
+    margin: -30px 0 0 -30px;
+  }
 </style>
-
 </head>
-
 <body>
-<a href="air_polution/templates/index.html">Dashboard</a>
-<h1>WiFi Robot Controller</h1>
 
-<button onclick="send('forward')">Forward</button>
-<br>
+<a class="nav" href="air_polution/templates/index.html">← Dashboard</a>
 
-<button onclick="send('left')">Left</button>
-<button onclick="send('stop')">Stop</button>
-<button onclick="send('right')">Right</button>
+<div class="status">
+  <span class="dot" id="dot"></span>
+  <span id="statusText">idle</span>
+</div>
 
-<br>
+<div class="main">
+  <span class="wordmark">Robot Control</span>
 
-<button onclick="send('backward')">Backward</button>
+  <div class="dpad">
+    <div class="empty"></div>
+    <button class="btn" onclick="send('forward', this)" title="Forward">
+      <svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+    <div class="empty"></div>
+
+    <button class="btn" onclick="send('left', this)" title="Left">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="btn stop" onclick="send('stop', this)" title="Stop">
+      <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" stroke-width="1.5"/></svg>
+    </button>
+    <button class="btn" onclick="send('right', this)" title="Right">
+      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+
+    <div class="empty"></div>
+    <button class="btn" onclick="send('backward', this)" title="Backward">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="empty"></div>
+  </div>
+
+  <span class="log" id="log">—</span>
+</div>
+
 <script>
+  const ARDUINO_IP = "http://10.16.218.64";
+  const dot = document.getElementById('dot');
+  const statusText = document.getElementById('statusText');
+  const log = document.getElementById('log');
+  let resetTimer;
 
-const ARDUINO_IP = "http://10.16.218.64";
+  function setStatus(state, text) {
+    dot.className = 'dot ' + state;
+    statusText.textContent = text;
+  }
 
-function send(command){
+  function addRipple(btn) {
+    const r = document.createElement('div');
+    r.className = 'ripple-el';
+    btn.appendChild(r);
+    r.addEventListener('animationend', () => r.remove());
+  }
 
-fetch(`${ARDUINO_IP}/${command}`)
-.then(res=>res.json())
-.then(data=>console.log(data))
-.catch(err=>console.log(err));
+  function send(command, btn) {
+    addRipple(btn);
+    log.textContent = command.toUpperCase();
+    setStatus('', 'sending');
+    clearTimeout(resetTimer);
 
-}
+    fetch(`${ARDUINO_IP}/${command}`)
+      .then(res => res.json())
+      .then(() => {
+        setStatus('active', command);
+        resetTimer = setTimeout(() => setStatus('', 'idle'), 2000);
+      })
+      .catch(() => {
+        setStatus('error', 'error');
+        resetTimer = setTimeout(() => setStatus('', 'idle'), 2000);
+      });
+  }
 
+  // Keyboard support
+  const keyMap = {
+    ArrowUp: 'forward', ArrowDown: 'backward',
+    ArrowLeft: 'left', ArrowRight: 'right',
+    ' ': 'stop', 'w': 'forward', 's': 'backward',
+    'a': 'left', 'd': 'right'
+  };
+  document.addEventListener('keydown', e => {
+    const cmd = keyMap[e.key];
+    if (!cmd) return;
+    e.preventDefault();
+    const btns = [...document.querySelectorAll('.btn')];
+    const match = btns.find(b => b.title.toLowerCase() === cmd || (cmd === 'stop' && b.classList.contains('stop')));
+    if (match) send(cmd, match);
+  });
 </script>
-
 </body>
-
 </html>
