@@ -1,192 +1,187 @@
-# Robocar: WiFi-Controlled Robotic Vehicle with Air Quality Monitoring
+# Robocar
+
+An autonomous air quality monitoring robot that combines wireless motor control with real-time environmental sensing. The system collects gas, temperature, humidity, and GPS data from a mobile unit and streams it to a web dashboard, while a separate web interface provides remote directional control over Wi-Fi.
+
+---
 
 ## Overview
 
-Robocar is an integrated IoT and robotics system that combines real-time robotic control with environmental monitoring. The system enables remote navigation of a robotic vehicle over WiFi while simultaneously collecting and visualizing air quality data, including gas concentration, temperature, humidity, and geographic location.
+The project consists of three independent subsystems that work together:
 
-The architecture integrates embedded systems, networking, backend processing, and modern web interfaces to provide a complete end-to-end solution.
-
----
-
-## Key Features
-
-- Real-time robot control via web-based interface
-- WiFi-based communication between client and robot
-- Air quality monitoring using MQ135 gas sensor
-- Temperature and humidity sensing using DHT22
-- GPS-based location tracking
-- Live AQI computation and categorization
-- Interactive dashboard with dynamic visualization
-- Google Maps integration for location tracking
-- Keyboard and touch-based control support
+- **Motor Control (Arduino Uno R4 Wi-Fi)** — Hosts an HTTP server over Wi-Fi. Accepts directional commands (`/forward`, `/backward`, `/left`, `/right`, `/stop`) and drives a dual H-bridge motor driver.
+- **Air Quality Sensor Unit (Arduino + Serial)** — Reads MQ135 gas sensor, DHT22 temperature/humidity sensor, and a GPS module. Streams CSV data over serial every 2 seconds.
+- **Flask Web Server (Python)** — Reads the serial stream from the sensor unit, computes AQI, and serves two frontends: a control dashboard and an air quality dashboard.
 
 ---
 
-## System Architecture
+## Repository Structure
 
-### Robot Control Flow
-Web UI (Browser)
-↓
-HTTP Requests (WiFi)
-↓
-Arduino WiFi Server
-↓
-Motor Driver Control
-↓
-Robot Movement
-
-
-### Sensor Data Flow
-Sensors (MQ135, DHT22, GPS)
-↓
-Arduino Serial Output
-↓
-Flask Backend
-↓
-AQI Computation
-↓
-REST API (/data)
-↓
-Dashboard UI
-
----
-
-## Project Structure
+```
 rishikrishnah-robocar/
-├── README.md
-├── app.py
-├── index.html
+├── app.py                          # Flask server — serial reader + API
+├── index.html                      # Robot control UI (D-pad)
 ├── air_polution/
-│ ├── air_polution.ino
-│ └── templates/
-│ ├── index.html
-│ └── index1.html
+│   ├── air_polution.ino            # Sensor unit firmware (MQ135 + DHT22 + GPS)
+│   └── templates/
+│       ├── index.html              # Basic air quality page
+│       └── index1.html             # Polished air quality dashboard
 └── sketch_mar13a/
-└── sketch_mar13a.ino
-
-
----
-
-## Technologies Used
-
-### Hardware
-- Arduino (WiFi-enabled board)
-- MQ135 Gas Sensor
-- DHT22 Temperature and Humidity Sensor
-- GPS Module
-- Motor Driver Module
-
-### Software
-- Python (Flask)
-- HTML, CSS, JavaScript
-- Arduino C/C++
-- Serial Communication
-- REST APIs
+    └── sketch_mar13a.ino           # Motor control firmware (Wi-Fi HTTP server)
+```
 
 ---
 
-## Installation and Setup
+## Hardware Requirements
 
-### 1. Arduino Setup (Robot Control)
+### Motor Control Unit
+| Component | Details |
+|-----------|---------|
+| Arduino Uno R4 Wi-Fi | Main controller |
+| L298N Motor Driver | Dual H-bridge, ENA/ENB + IN1-IN4 |
+| DC Motors (x2) | Connected to motor driver outputs |
+| Power Supply | External battery for motors |
 
-- Open `sketch_mar13a/sketch_mar13a.ino`
-- Update WiFi credentials:
-  ```cpp
-  char ssid[] = "YOUR_SSID";
-  char pass[] = "YOUR_PASSWORD";
+**Pin Mapping (sketch_mar13a.ino)**
 
-Upload the code to the Arduino
-Note the IP address printed in the serial monitor
-Arduino Setup (Air Quality Unit)
-Open air_polution/air_polution.ino
-Connect:
-MQ135 → A0
-DHT22 → Pin 2
-GPS → Pins 3 and 4
-Upload the code
+| Arduino Pin | Function |
+|-------------|----------|
+| 5 | ENA (Motor A speed) |
+| 6 | ENB (Motor B speed) |
+| 8 | IN1 |
+| 9 | IN2 |
+| 10 | IN3 |
+| 11 | IN4 |
 
-Flask Backend
+### Sensor Unit
+| Component | Details |
+|-----------|---------|
+| Arduino (Uno/Nano) | Main controller |
+| MQ135 Gas Sensor | Analog pin A0 |
+| DHT22 | Digital pin 2 |
+| GPS Module (NMEA) | SoftwareSerial — RX: pin 4, TX: pin 3 |
 
-Install dependencies:
+---
 
+## Software Requirements
+
+- Python 3.8+
+- Flask
+- pyserial
+- Arduino IDE 2.x
+
+### Python Dependencies
+
+```bash
 pip install flask pyserial
+```
 
-Update COM port in app.py:
+### Arduino Libraries
 
-ser = serial.Serial('COM5', 115200, timeout=1)
+Install via Arduino IDE Library Manager:
 
-Run the server:
+- `DHT sensor library` by Adafruit
+- `TinyGPS++` by Mikal Hart
+- `WiFiS3` (bundled with Arduino Uno R4 board package)
 
+---
+
+## Setup and Configuration
+
+### 1. Motor Control Firmware
+
+Open `sketch_mar13a/sketch_mar13a.ino` and update the Wi-Fi credentials:
+
+```cpp
+char ssid[] = "YOUR_NETWORK_NAME";
+char pass[] = "YOUR_PASSWORD";
+```
+
+Flash to the Arduino Uno R4 Wi-Fi. After connecting, the assigned IP address is printed to Serial Monitor. Update the control UI with this address:
+
+In `index.html`, find and update:
+
+```javascript
+const ARDUINO_IP = "http://<ARDUINO_IP_HERE>";
+```
+
+### 2. Sensor Unit Firmware
+
+Open `air_polution/air_polution.ino` and flash to the sensor Arduino. No configuration required — it begins streaming CSV data over Serial at 115200 baud on power-up.
+
+Output format:
+```
+gasRaw,temperature,humidity,latitude,longitude
+```
+
+### 3. Flask Server
+
+Connect the sensor Arduino to your PC via USB. Update the serial port in `app.py`:
+
+```python
+ser = serial.Serial('COM5', 115200, timeout=1)  # Windows
+# ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)  # Linux/macOS
+```
+
+Start the server:
+
+```bash
 python app.py
+```
 
-Web Interface
-Robot Control
-Open index.html
+The server runs at `http://localhost:5000` by default.
 
-Update Arduino IP:
+---
 
-const ARDUINO_IP = "http://<YOUR_ARDUINO_IP>";
-Dashboard
+## Usage
 
-Open in browser:
+### Air Quality Dashboard
 
-http://127.0.0.1:5000/
+Navigate to `http://localhost:5000` to view:
 
-API Endpoints
-GET /data
+- Live AQI index with color-coded gauge
+- Temperature and humidity readings
+- Raw gas sensor value
+- GPS location embedded in a map (updates every 2 seconds)
 
-Returns latest sensor readings and computed AQI.
+### Robot Control
 
-Response Format
-{
-  "gas": 250,
-  "temperature": 30,
-  "humidity": 60,
-  "latitude": 12.9716,
-  "longitude": 80.2431,
-  "aqi": 120,
-  "category": "Poor"
-}
+Open `index.html` directly in a browser (or serve it separately). Use the D-pad interface or keyboard shortcuts to send movement commands to the Arduino over Wi-Fi.
 
-AQI Calculation
+| Key | Action |
+|-----|--------|
+| Arrow Up / W | Forward |
+| Arrow Down / S | Backward |
+| Arrow Left / A | Left |
+| Arrow Right / D | Right |
+| Space | Stop |
 
-The AQI is computed using a piecewise linear approximation based on gas sensor values.
+---
 
-Gas Value Range	AQI Range
-0–150	0–50
-150–300	50–100
-300–500	100–200
-500–700	200–300
->700	300+
-AQI Categories
-AQI Range	Category
-0–50	Good
-51–100	Moderate
-101–200	Poor
-201–300	Unhealthy
->300	Hazardous
-Control Commands
-Command	Endpoint
-Forward	/forward
-Backward	/backward
-Left	/left
-Right	/right
-Stop	/stop
+## AQI Calculation
 
-Limitations
-AQI is estimated using raw MQ135 values and is not calibrated to standard environmental metrics
-Serial communication assumes stable connection and consistent data format
-No authentication mechanism for robot control
-WiFi credentials are hardcoded in firmware
-Limited error handling in backend
-Future Improvements
-Sensor calibration for accurate AQI measurement
-Cloud integration for remote monitoring and data storage
-Authentication and security enhancements
-Mobile application interface
-Autonomous navigation capabilities
-Historical data logging and analytics
-Real-time alerts for hazardous air quality
-License
+The AQI is derived from the raw MQ135 analog reading (0-1023) using a linear scale mapped to standard AQI bands:
 
-This project is intended for academic and research purposes.
+| Gas Raw Value | AQI Range | Category |
+|---------------|-----------|----------|
+| 0 - 150 | 0 - 50 | Good |
+| 151 - 300 | 51 - 100 | Moderate |
+| 301 - 500 | 101 - 200 | Poor |
+| 501 - 700 | 201 - 300 | Unhealthy |
+| 700+ | 300+ | Hazardous |
+
+> Note: The MQ135 requires a warmup period of approximately 24-48 hours for accurate baseline readings. Values during initial startup may not reflect actual air quality accurately.
+
+---
+
+## Known Limitations
+
+- The MQ135 gas sensor is uncalibrated and provides a relative index rather than PPM readings for specific gases.
+- GPS may take several minutes to acquire a fix indoors or in areas with poor satellite visibility. Location will display as `0.0, 0.0` until a valid fix is obtained.
+- The Flask server and robot control Arduino must be on the same local network for the control interface to function.
+- Serial port must be manually configured in `app.py` to match the host OS and connected port.
+
+---
+
+## License
+
+This project is open source. See [LICENSE](LICENSE) for details.
