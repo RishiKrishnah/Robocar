@@ -184,4 +184,4 @@ The AQI is derived from the raw MQ135 analog reading (0-1023) using a linear sca
 
 ## License
 
-This project is open source. See [LICENSE](LICENSE) for details.
+This project is open source.
